@@ -1,5 +1,5 @@
-name: Server Backup
-description: Create scheduled Linux server and hosting backups over SSH using rsync
+name: Automated Linux Server Backup
+description: Automates scheduled Linux server and hosting backups over SSH in GitHub Actions.
 author: iServerSupport
 
 branding:
