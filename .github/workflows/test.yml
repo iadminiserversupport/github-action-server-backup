@@ -1,0 +1,23 @@
+name: Test Action
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Validate action metadata
+        shell: bash
+        run: |
+          test -f action.yml
+          grep -q "using: composite" action.yml
+          grep -q "Server Backup" action.yml
+          echo "Action metadata validation passed"

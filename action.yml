@@ -1,0 +1,85 @@
+name: Server Backup
+description: Create scheduled Linux server and hosting backups over SSH using rsync
+author: iServerSupport
+
+branding:
+  icon: archive
+  color: blue
+
+inputs:
+  host:
+    description: Remote Linux server hostname or IP address
+    required: true
+  username:
+    description: SSH username
+    required: true
+  ssh_private_key:
+    description: SSH private key used for authentication
+    required: true
+  source:
+    description: Remote directory to back up
+    required: true
+  backup_path:
+    description: Local directory where backups are stored
+    required: true
+  retention_days:
+    description: Number of days of backups to retain
+    required: false
+    default: "30"
+  port:
+    description: SSH port
+    required: false
+    default: "22"
+
+runs:
+  using: composite
+  steps:
+    - name: Install rsync and OpenSSH
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y rsync openssh-client
+
+    - name: Configure SSH
+      shell: bash
+      env:
+        SSH_PRIVATE_KEY: ${{ inputs.ssh_private_key }}
+      run: |
+        mkdir -p "$HOME/.ssh"
+        chmod 700 "$HOME/.ssh"
+
+        printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/backup_key"
+        chmod 600 "$HOME/.ssh/backup_key"
+
+        ssh-keyscan -p "${{ inputs.port }}" "${{ inputs.host }}" \
+          >> "$HOME/.ssh/known_hosts"
+
+    - name: Create backup
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        timestamp="$(date -u +%Y%m%d-%H%M%S)"
+        mkdir -p "${{ inputs.backup_path }}"
+
+        archive="${{ inputs.backup_path }}/backup-${timestamp}.tar.gz"
+
+        ssh \
+          -i "$HOME/.ssh/backup_key" \
+          -p "${{ inputs.port }}" \
+          "${{ inputs.username }}@${{ inputs.host }}" \
+          "tar -czf - -C \"$(dirname '${{ inputs.source }}')\" \"$(basename '${{ inputs.source }}')\"" \
+          > "$archive"
+
+        test -s "$archive"
+
+        echo "Backup created: $archive"
+
+    - name: Remove old backups
+      shell: bash
+      run: |
+        find "${{ inputs.backup_path }}" \
+          -type f \
+          -name 'backup-*.tar.gz' \
+          -mtime +"${{ inputs.retention_days }}" \
+          -delete
